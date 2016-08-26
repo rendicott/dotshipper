@@ -119,7 +119,7 @@ class VOSlist:
         # holder list for lists of len 1000 
         self.kbodies = []
     def sort_by_date(self):
-        self.vosrows.sort(key=lambda x: x.anodot_timestamp_epoch_str, reverse=True)
+        self.vosrows.sort(key=lambda x: x.anodot_timestamp_epoch_str, reverse=False)
     def dumpself(self):
         msg = self.vosrows[1].tableformat_header()
         for vosrow in self.vosrows:
