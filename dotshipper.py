@@ -412,6 +412,7 @@ def drain_anodot_queue(settings, qname):
                         body += '\n'
                 body += ']'
                 logging.info("I'm about to REST POST the following body to %s " % url)
+                logging.info("timestamp for one of these is: %s" % body[0:300])
                 logging.info("--------------------")
                 logging.info("body with len = %s" % str(len(body)))
                 logging.info("--------------------------------------------")
