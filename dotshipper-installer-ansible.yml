@@ -1,0 +1,27 @@
+- name: set up pre-reqs for dotshipper utility box
+  hosts: "{{ machineName }}"
+  gather_facts: true
+  tasks:
+    - name: make sure python pip is installed
+      yum: name=python-pip state=present
+
+    - name: make sure python redis is installed
+      pip: name=redis version=2.10.5
+
+    - name: make sure python requests is installed
+      pip: name=requests version=2.10.0
+
+    - name: make sure python jinja2 is installed
+      pip: name=jinja2 version=2.8
+
+    - name: make sure vertica_python is installed
+      pip: name=vertica_python version=0.6.6
+
+    - name: pull the pyTableFormat repo from github
+      git: repo=https://github.com/rendicott/pyTableFormat.git dest=/usr/pyTableFormat
+
+    - name: pull the dotshipper repo from github
+      git: repo=https://github.com/rendicott/dotshipper.git dest=/usr/dotshipper
+
+    - name: copy pyTableFormat to the dotshipper folder
+      command: cp /usr/pyTableFormat/pyTableFormat.py /usr/dotshipper/pyTableFormat.py
