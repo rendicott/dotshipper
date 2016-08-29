@@ -484,11 +484,10 @@ def main(opts):
     queue_name = build_anodot_queue(settings,vs)
 
     drain_anodot_queue(settings, queue_name)
-    
-    log_run(settings,counter,pointer,settings.lagged_now_str,resultscount_rows,resultscount_counts)
-    # now finally update the new pointer with the 'to' date of the last query
     t1 = time.time()
     settings.total_runtime = float(t1) - float(t0)
+    log_run(settings,counter,pointer,settings.lagged_now_str,resultscount_rows,resultscount_counts)
+    # now finally update the new pointer with the 'to' date of the last query
     store_pointer(settings)
 
 
