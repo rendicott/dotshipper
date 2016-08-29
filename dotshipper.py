@@ -247,7 +247,7 @@ class Settings:
         self.anodot_what = None
         self.anodot_tags = None
         self.simulate = False
-
+        self.total_runtime = float(0)
     def make_vert_conn_dict(self):
         self.vert_conn_dict = {'vert_host': self.vert_host,
                                'vert_port': self.vert_port,
@@ -330,6 +330,7 @@ def log_run(settings,counter,last_run,current_run,resultscount_rows,resultscount
     r.hset(keystring,'resultscount_rows',resultscount_rows)
     r.hset(keystring,'resultscount_counts',resultscount_counts)
     r.hset(keystring,'simulation',str(settings.simulate))
+    r.hset(keystring,'total_runtime',settings.total_runtime)
     delta = str(timedelta_from_strings(settings,last_run,current_run))
     logging.info("Delta coming back?: %s" % delta)
     r.hset(keystring,'timedelta_seconds',delta)
@@ -397,7 +398,7 @@ def drain_anodot_queue(settings, qname):
     remainder = qlength % 1000
 
     for j in range(iterations + 1):
-        logging.info("************************ITERATION %s ***********************" % str(j))
+        logging.info("************************ITERATION %s of %s ***********************" % (str(j),str(iterations)))
         cache = []
         body = '['
         while r.llen(qname) > 0:
@@ -424,7 +425,9 @@ def drain_anodot_queue(settings, qname):
                 break
 
 def main(opts):
+    t0 = time.time()
     settings = process_config(opts.configfile)
+
     # override settings from cmd line opts if applicable
     if opts.query_lag_hours:
         settings.query_lag_hours = opts.query_lag_hours
@@ -484,6 +487,8 @@ def main(opts):
     
     log_run(settings,counter,pointer,settings.lagged_now_str,resultscount_rows,resultscount_counts)
     # now finally update the new pointer with the 'to' date of the last query
+    t1 = time.time()
+    settings.total_runtime = float(t1) - float(t0)
     store_pointer(settings)
 
 
