@@ -27,7 +27,7 @@
       command: cp /usr/pyTableFormat/pyTableFormat.py /usr/dotshipper/pyTableFormat.py
 
     - name: make sure crontab line is in file
-      cron: name="Dotshipper Vertica To Anodot Job" hour="11" minute="5" job="python /usr/dotshipper/dotshipper.py --configfile /usr/dotshipper/dotshipper.ini -d 0 --query_lag_hours=96 -l /var/log/dotshipper.py.`date +\%Y\%m\%d\%H\%M\%S`.log >/dev/null 2>&1"
+      cron: name="Dotshipper Vertica To Anodot Job" hour="11" minute="5" job="python /usr/dotshipper/dotshipper.py --configfile /usr/dotshipper/dotshipper.ini -d 0 --query_lag_hours=96 -l /var/log/dotshipper/dotshipper.py.`date +\%Y\%m\%d\%H\%M\%S`.log >/dev/null 2>&1"
 
     - name: make sure /var/log/dotshipper dir exists
       file: path=/var/log/dotshipper state=directory
