@@ -45,7 +45,7 @@ select /*+direct*/
           MarkServedMethodID, SourceMarkServedMethodID, 
           count(*) as counts
  from {{ db }}.{{ table }}
- WHERE ServedDate >= '{{ from_time }}'  AND ServedDate < '{{ to_time }}'
+ WHERE ServedDT >= '{{ from_time }}'  AND ServedDT < '{{ to_time }}'
  group by 1,2,3,4,5,6,7,8,9,10,11,12,13 
  limit {{ limit }};
 """
