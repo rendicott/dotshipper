@@ -179,31 +179,36 @@ class VOSrow_batched(Table_Formattable_Object):
         self.institution_id = rowlist[1]
         self.offer_id = rowlist[2]
         self.source_channel_id = rowlist[3]
-        self.source_location_id = rowlist[4]
-        self.location_id = rowlist[5]
-        self.source_display_id = rowlist[6]
-        self.display_id = rowlist[7]
-        self.trxn_placement_flag = rowlist[8]
-        self.source_trxn_placement_flag = rowlist[9]
-        self.mark_served_method_id = rowlist[10]
-        self.source_mark_served_method_id = rowlist[11]
+        self.channel_id = rowlist[4]
+        self.source_location_id = rowlist[5]
+        self.location_id = rowlist[6]
+        self.source_display_id = rowlist[7]
+        self.display_id = rowlist[8]
+        self.trxn_placement_flag = rowlist[9]
+        self.source_trxn_placement_flag = rowlist[10]
+        self.mark_served_method_id = rowlist[11]
+        self.source_mark_served_method_id = rowlist[12]
         # for the batched we'll use the pulled row count
-        self.counts = int(rowlist[12])
+        self.counts = int(rowlist[13])
         # for the batched we'll use the served date hour
         self.anodot_timestamp = self.served_date_hour
         self.make_anodot_timestamp()
 
     def build_anodot_body(self):
         ##t0 = time.time()
-        tpl = '{{"name":"ver={0}.InstitutionID={1}.OfferID={2}.SourceChannelID={3}.LocationID={4}.SourceDisplayID={5}.DisplayID={6}.MarkServedMethodID={7}.SourceMarkServedMethodID={8}.what={9}","timestamp": {10},"value": {11},"tags": {12} }}'
+        tpl = '{{"name":"ver={0}.InstitutionID={1}.OfferID={2}.SourceChannelID={3}.ChannelID={4}.SourceLocationID={5}.LocationID={6}.SourceDisplayID={7}.DisplayID={8}.Trxn_Placement_Flag={9}.SourceTrxn_Placement_Flag={10}.MarkServedMethodID={11}.SourceMarkServedMethodID={12}.what={13}","timestamp": {14},"value": {15},"tags": {16} }}'
         anodot_body_vals = []
         anodot_body_vals.append(self.version)
         anodot_body_vals.append(self.institution_id)
         anodot_body_vals.append(self.offer_id)
         anodot_body_vals.append(self.source_channel_id)
+        anodot_body_vals.append(self.channel_id)
+        anodot_body_vals.append(self.source_location_id)
         anodot_body_vals.append(self.location_id)
         anodot_body_vals.append(self.source_display_id)
         anodot_body_vals.append(self.display_id)
+        anodot_body_vals.append(self.trxn_placement_flag)
+        anodot_body_vals.append(self.source_trxn_placement_flag)
         anodot_body_vals.append(self.mark_served_method_id)
         anodot_body_vals.append(self.source_mark_served_method_id)
         anodot_body_vals.append(self.what)
