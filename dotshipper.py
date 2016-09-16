@@ -439,6 +439,42 @@ def drain_anodot_queue(settings, qname):
                     logging.info(mesg)
                 break
 
+
+def determine_lagged_now(settings):
+    '''
+    figures out what the delayed end time is for the query
+    this used to be simple but is now more complicated because Anodot
+    doesn't allow us to backfill an hour bucket once it's closed
+    e.g., query from 0800-1030 hrs and then the next query 1030-1400 hrs,
+    in the 1000 hour will only have 30 mins of data because the data from
+    the 1000 in the 1030-1400 query is thrown out. 
+
+    Returns settings object.
+    '''
+    logging.debug("Entering determine_lagged_now()...")
+    try:
+        hoursback = int(settings.query_lag_hours)
+    except Exception as orp:
+        logging.critical("ERROR casting query lag hours as int: " + str(orp))
+        sys.exit(1)
+
+    lagged_now = datetime.datetime.now() - datetime.timedelta(hours=hoursback)
+
+    # always round the lagged_now down the last hour's 59th minute 
+    if lagged_now.minute >= 59:
+        logging.info("lagged_now.minute is >= 59 ('%s')so we're not doing any rounding" % str(lagged_now))
+    else:
+        lagged_now_rounded = lagged_now - datetime.timedelta(minutes=(lagged_now.minute + 1))
+        logging.info("lagged_now is being rounded from %s to %s" % (str(lagged_now),str(lagged_now_rounded)))
+        lagged_now = lagged_now_rounded
+
+    settings.lagged_now = lagged_now
+    # now convert to string
+    settings.lagged_now_str = settings.lagged_now.strftime(settings.timestamp_format)
+
+    return settings
+
+
 def main(opts):
     t0 = time.time()
     settings = process_config(opts.configfile)
@@ -447,19 +483,15 @@ def main(opts):
     if opts.query_lag_hours:
         settings.query_lag_hours = opts.query_lag_hours
     
-    # first thing we do is find the lagged 'now' which we should never exceed due to data lag
-    try:
-        hoursback = int(settings.query_lag_hours)
-    except Exception as orp:
-        logging.critical("ERROR casting query lag hours as int: " + str(orp))
-        sys.exit(1)
     if opts.simulate:
         settings.simulate = True
     if opts.query_limit:
         settings.query_limit = opts.query_limit
-    lagged_now = datetime.datetime.now() - datetime.timedelta(hours=hoursback)
-    settings.lagged_now = lagged_now
-    settings.lagged_now_str = lagged_now.strftime(settings.timestamp_format)
+    
+    # first thing we do is find the lagged 'now' which we should never exceed due to data lag
+    settings = determine_lagged_now(settings)
+
+    
     # build a class obj to hold the vosrows returned
     vs = VOSlist()
 
