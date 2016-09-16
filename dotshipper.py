@@ -35,9 +35,8 @@ jtpl_conn_info = """
 
 jtpl_vertica_query = """
 select /*+direct*/
-         case when date_part('Hour',ServedDT) < 10 then ServedDate|| ' 0'||date_part('Hour',ServedDT)||':00:00' else ServedDate|| ' '||date_part('Hour',ServedDT)||':00:00' end as ServedDate_Hour,
+          timestamp_trunc(ServedDT,'hh24') as ServedDate_Hour,
           InstitutionID, 
-          OfferID, 
           SourceChannelID,  ChannelID, 
           SourceLocationID, LocationID, 
           SourceDisplayID, DisplayID,
@@ -46,7 +45,7 @@ select /*+direct*/
           count(*) as counts
  from {{ db }}.{{ table }}
  WHERE ServedDT >= '{{ from_time }}'  AND ServedDT < '{{ to_time }}'
- group by 1,2,3,4,5,6,7,8,9,10,11,12,13 
+ group by 1,2,3,4,5,6,7,8,9,10,11,12
  limit {{ limit }};
 """
 
@@ -56,7 +55,7 @@ WHERE VerticaUpdateDate >= '{{ from_time }}'  AND VerticaUpdateDate < '{{ to_tim
 """
 
 # what we're sending to Anodot
-#   ServedDate_Hour,InstitutionID,OfferID,SourceChannelID,ChannelID,SourceLocationID,
+#   ServedDate_Hour,InstitutionID,SourceChannelID,ChannelID,SourceLocationID,
 #   LocationID,SourceDisplayID,DisplayID,Trxn_Placement_Flag,SourceTrxn_Placement_Flag,
 #   MarkServedMethodID,SourceMarkServedMethodID,counts
 '''
@@ -65,7 +64,7 @@ body:
 "timestamp":`date +%s`,"value":100,"tags":{"target_type":"counter"}}]
 '''
 jtpl_anodot_body = """
-{"name":"InstitutionID={{ institution_id }}.OfferID={{ offer_id }}.SourceChannelID={{ source_channel_id }}.
+{"name":"InstitutionID={{ institution_id }}.SourceChannelID={{ source_channel_id }}.
 LocationID={{ location_id }}.SourceDisplayID={{ source_display_id }}.DisplayID={{ display_id }}.
 MarkServedMethodID={{ mark_served_method_id }}.SourceMarkServedMethodID={{ source_mark_served_method_id }}",
 "timestamp": {{ anodot_timestamp }},"value": {{ value }},"tags":{}}
@@ -158,7 +157,6 @@ class VOSrow_batched(Table_Formattable_Object):
         self.anodot_timestamp_epoch_str = None
         self.served_date_hour = None
         self.institution_id = None
-        self.offer_id = None
         self.source_channel_id = None
         self.channel_id = None
         self.source_location_id = None
@@ -177,30 +175,28 @@ class VOSrow_batched(Table_Formattable_Object):
     def build_self_from_row_list(self,rowlist):
         self.served_date_hour = rowlist[0]
         self.institution_id = rowlist[1]
-        self.offer_id = rowlist[2]
-        self.source_channel_id = rowlist[3]
-        self.channel_id = rowlist[4]
-        self.source_location_id = rowlist[5]
-        self.location_id = rowlist[6]
-        self.source_display_id = rowlist[7]
-        self.display_id = rowlist[8]
-        self.trxn_placement_flag = rowlist[9]
-        self.source_trxn_placement_flag = rowlist[10]
-        self.mark_served_method_id = rowlist[11]
-        self.source_mark_served_method_id = rowlist[12]
+        self.source_channel_id = rowlist[2]
+        self.channel_id = rowlist[3]
+        self.source_location_id = rowlist[4]
+        self.location_id = rowlist[5]
+        self.source_display_id = rowlist[6]
+        self.display_id = rowlist[7]
+        self.trxn_placement_flag = rowlist[8]
+        self.source_trxn_placement_flag = rowlist[9]
+        self.mark_served_method_id = rowlist[10]
+        self.source_mark_served_method_id = rowlist[11]
         # for the batched we'll use the pulled row count
-        self.counts = int(rowlist[13])
+        self.counts = int(rowlist[12])
         # for the batched we'll use the served date hour
         self.anodot_timestamp = self.served_date_hour
         self.make_anodot_timestamp()
 
     def build_anodot_body(self):
         ##t0 = time.time()
-        tpl = '{{"name":"ver={0}.InstitutionID={1}.OfferID={2}.SourceChannelID={3}.ChannelID={4}.SourceLocationID={5}.LocationID={6}.SourceDisplayID={7}.DisplayID={8}.Trxn_Placement_Flag={9}.SourceTrxn_Placement_Flag={10}.MarkServedMethodID={11}.SourceMarkServedMethodID={12}.what={13}","timestamp": {14},"value": {15},"tags": {16} }}'
+        tpl = '{{"name":"ver={0}.InstitutionID={1}.SourceChannelID={2}.ChannelID={3}.SourceLocationID={4}.LocationID={5}.SourceDisplayID={6}.DisplayID={7}.Trxn_Placement_Flag={8}.SourceTrxn_Placement_Flag={9}.MarkServedMethodID={10}.SourceMarkServedMethodID={11}.what={12}","timestamp": {13},"value": {14},"tags": {15} }}'
         anodot_body_vals = []
         anodot_body_vals.append(self.version)
         anodot_body_vals.append(self.institution_id)
-        anodot_body_vals.append(self.offer_id)
         anodot_body_vals.append(self.source_channel_id)
         anodot_body_vals.append(self.channel_id)
         anodot_body_vals.append(self.source_location_id)
@@ -226,8 +222,20 @@ class VOSrow_batched(Table_Formattable_Object):
     def make_anodot_timestamp(self):
         # takes the anodot_timestamp set from wherever and turns it into a 
         #  unix epoch time which can then be sorted
-        self.anodot_timestamp_obj = datetime.datetime.strptime(self.anodot_timestamp,self.timestamp_format)
-        self.anodot_timestamp_epoch_str = (self.anodot_timestamp_obj - BEGINNINGOFTIME).total_seconds()
+        try:
+            if 'datetime' in str(type(self.anodot_timestamp)):
+                # means self.anodot_timestamp is already an obj so we just convert it to unix epoch
+                self.anodot_timestamp_obj = self.anodot_timestamp
+            else:
+                # means we need to convert datetime obj to string
+                self.anodot_timestamp_obj = datetime.datetime.strptime(self.anodot_timestamp,self.timestamp_format)
+            # either way we need the delta to make it a unix epoch timestamp
+            self.anodot_timestamp_epoch_str = (self.anodot_timestamp_obj - BEGINNINGOFTIME).total_seconds()
+        except Exception as whar:
+            logging.debug("Exception: " + str(whar))
+            logging.debug("self.anodot_timestamp = " + str(self.anodot_timestamp))
+            logging.debug("type(self.anodot_timestamp) = " + str(type(self.anodot_timestamp)))
+            logging.debug("self.timestamp_format = " + str(self.timestamp_format))
 
 
 class Settings:
@@ -426,7 +434,9 @@ def drain_anodot_queue(settings, qname):
                     response = requests.post(url, headers=headers, data=body)
                     logging.info("Queue drain batch post response code = %s" % str(response.status_code))
                 else:
-                    print("Not actually sending Data since 'simulate' flag is set.")
+                    mesg = "Not actually sending Data since 'simulate' flag is set."
+                    print(mesg)
+                    logging.info(mesg)
                 break
 
 def main(opts):
