@@ -36,12 +36,12 @@ jtpl_conn_info = """
 jtpl_vertica_query = """
 select /*+direct*/
           timestamp_trunc(ServedDT,'hh24') as ServedDate_Hour,
-          InstitutionID, 
-          SourceChannelID,  ChannelID, 
-          SourceLocationID, LocationID, 
+          InstitutionID,
+          SourceChannelID,  ChannelID,
+          SourceLocationID, LocationID,
           SourceDisplayID, DisplayID,
-          case when TransactionID > 1 then 1 else 0 end as Trxn_Placement_Flag, case when SourceTransactionID > 1 then 1 else 0 end as SourceTrxn_Placement_Flag, 
-          MarkServedMethodID, SourceMarkServedMethodID, 
+          case when TransactionID > 1 then 1 else 0 end as Trxn_Placement_Flag, case when SourceTransactionID > 1 then 1 else 0 end as SourceTrxn_Placement_Flag,
+          MarkServedMethodID, SourceMarkServedMethodID,
           count(*) as counts
  from {{ db }}.{{ table }}
  WHERE ServedDT >= '{{ from_time }}'  AND ServedDT < '{{ to_time }}'
@@ -115,7 +115,7 @@ def vert_query(settingsobj,from_time,to_time,limit):
 class VOSlist:
     def __init__(self):
         self.vosrows = []
-        # holder list for lists of len 1000 
+        # holder list for lists of len 1000
         self.kbodies = []
     def sort_by_date(self):
         self.vosrows.sort(key=lambda x: x.anodot_timestamp_epoch_str, reverse=False)
@@ -220,7 +220,7 @@ class VOSrow_batched(Table_Formattable_Object):
         ##timing = t1 - t0
         return result
     def make_anodot_timestamp(self):
-        # takes the anodot_timestamp set from wherever and turns it into a 
+        # takes the anodot_timestamp set from wherever and turns it into a
         #  unix epoch time which can then be sorted
         try:
             if 'datetime' in str(type(self.anodot_timestamp)):
@@ -282,7 +282,7 @@ def process_config(filename):
     """
     logging.info('------- ENTERING FUNCTION: process_config() -------')
     settings = Settings()
-    
+
     try:
         cfg = ConfigParser.ConfigParser()
         cfg.read(filename)
@@ -326,7 +326,7 @@ def process_config(filename):
 
 def timedelta_from_strings(settings,start,end):
     # takes two timestamp strings and converts them to datetime objs
-    # then takes a delta and returns the difference in seconds. 
+    # then takes a delta and returns the difference in seconds.
     t1 = datetime.datetime.strptime(start,settings.timestamp_format)
     t2 = datetime.datetime.strptime(end,settings.timestamp_format)
     logging.info("Timedelta: %s" % str(t2 - t1))
@@ -347,7 +347,7 @@ def log_run(settings,counter,last_run,current_run,resultscount_rows,resultscount
     delta = str(timedelta_from_strings(settings,last_run,current_run))
     logging.info("Delta coming back?: %s" % delta)
     r.hset(keystring,'timedelta_seconds',delta)
-    
+
 
 def store_pointer(settings):
     r = redis.StrictRedis(host=settings.redis_address, port=settings.redis_port, db=0)
@@ -381,10 +381,10 @@ def retrieve_pointer(settings):
 def build_anodot_queue(settings, voslist):
     logging.info("Building Anodot Redis Queue...")
     r = redis.StrictRedis(host=settings.redis_address, port=settings.redis_port, db=0)
-
+    logging.info("Length of voslist.vosrows = %s" % str(len(voslist.vosrows)))
     local_id = r.incr("queue_space")
     queue_id = "queue:%s" %(local_id)
-    batchsize = 10000
+    batchsize = 100
     pipe = r.pipeline()
     #timings = float(0)
     #timings_count = float(0)
@@ -400,8 +400,11 @@ def build_anodot_queue(settings, voslist):
             #logging.info("Average timing for build_anodot_body() = %s" % timing_avg)
             #timings = float(0)
             #timings_count = float(0)
+        elif ((len(voslist.vosrows) - i) < batchsize):
+            logging.info("Remaining smaller than batchsize so pipe.execute() individual.")
+            pipe.execute()
     return(queue_id)
-    
+
 def drain_anodot_queue(settings, qname):
     url = settings.anodot_url_with_api_key
     headers = {'Content-Type': 'application/json'}
@@ -447,7 +450,7 @@ def determine_lagged_now(settings):
     doesn't allow us to backfill an hour bucket once it's closed
     e.g., query from 0800-1030 hrs and then the next query 1030-1400 hrs,
     in the 1000 hour will only have 30 mins of data because the data from
-    the 1000 in the 1030-1400 query is thrown out. 
+    the 1000 in the 1030-1400 query is thrown out.
 
     Returns settings object.
     '''
@@ -460,7 +463,7 @@ def determine_lagged_now(settings):
 
     lagged_now = datetime.datetime.now() - datetime.timedelta(hours=hoursback)
 
-    # always round the lagged_now down the last hour's 59th minute 
+    # always round the lagged_now down the last hour's 59th minute
     if lagged_now.minute >= 59:
         logging.info("lagged_now.minute is >= 59 ('%s')so we're not doing any rounding" % str(lagged_now))
     else:
@@ -482,16 +485,16 @@ def main(opts):
     # override settings from cmd line opts if applicable
     if opts.query_lag_hours:
         settings.query_lag_hours = opts.query_lag_hours
-    
+
     if opts.simulate:
         settings.simulate = True
     if opts.query_limit:
         settings.query_limit = opts.query_limit
-    
+
     # first thing we do is find the lagged 'now' which we should never exceed due to data lag
     settings = determine_lagged_now(settings)
 
-    
+
     # build a class obj to hold the vosrows returned
     vs = VOSlist()
 
@@ -501,7 +504,7 @@ def main(opts):
     counter = retrieve_and_increment_counter(settings)
     logging.info("Counter value = %s" % str(counter))
     logging.info("Type of val counter = %s" % str(type(counter)))
-    
+
     ## get results from query
     results = vert_query(settings,from_time=pointer,to_time=settings.lagged_now_str,limit=settings.query_limit)
 
@@ -566,7 +569,7 @@ if __name__ == '__main__':
                       default='ALL')
     parser.add_option('-s','--simulate',
                       action='store_true',
-                      help=("Boolean flag. If this option is present then no REST calls will be made" + 
+                      help=("Boolean flag. If this option is present then no REST calls will be made" +
                             ", only testing. (Default=False)"),
                       default=False)
     parser_debug = OptionGroup(parser, 'Debug Options')
@@ -612,5 +615,5 @@ if __name__ == '__main__':
         logging.error(msg)
         print(msg)
         sys.exit(1)
-        
+
     main(options)
