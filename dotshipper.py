@@ -33,7 +33,7 @@ jtpl_conn_info = """
 }
 """
 
-jtpl_vertica_query = """
+jtpl_vertica_query_non_bucketized = """
 select /*+direct*/
           timestamp_trunc(ServedDT,'hh24') as ServedDate_Hour,
           InstitutionID,
@@ -47,6 +47,60 @@ select /*+direct*/
  WHERE ServedDT >= '{{ from_time }}'  AND ServedDT < '{{ to_time }}'
  group by 1,2,3,4,5,6,7,8,9,10,11,12
  limit {{ limit }};
+"""
+
+jtpl_vertica_query = """
+-- build shell table
+drop table if exists temp.ew_anodotUpload cascade;
+create table temp.ew_anodotUpload as /*+direct*/ (
+        with dates as (
+                select  timestamp_trunc(ServedDT, 'hh24') as ServedDate_hour
+                from    {{ db }}.{{ table }}
+                where   1=1
+                        and ServedDate between '{{ from_time }}' and '{{ to_time }}' /*UPDATE DATES*/
+                group by 1 order by 1
+                ),
+        indicators as (
+                select  InstitutionID, ChannelID, LocationID, DisplayID, MarkServedMethodID
+                from    {{ db }}.{{ table }}
+                where   year(ServedDate) > 2014
+                group by InstitutionID, ChannelID, LocationID, DisplayID, MarkServedMethodID
+                )
+
+        select  ServedDate_hour,
+                InstitutionID, ChannelID, LocationID, DisplayID, MarkServedMethodID,
+                0 as srv_count
+        from    dates cross join indicators
+        group by ServedDate_hour, InstitutionID, ChannelID, LocationID, DisplayID, MarkServedMethodID
+        order by ServedDate_hour,  InstitutionID, ChannelID, LocationID, DisplayID, MarkServedMethodID
+        );
+        
+        
+--- pull serve data
+drop table if exists srvData;
+create local temporary table srvData on commit preserve rows as /*+direct*/ (  
+        select  timestamp_trunc(ServedDT, 'hh24') as ServedDate_hour,
+                InstitutionID, 
+                ChannelID, 
+                LocationID, 
+                DisplayID,
+                MarkServedMethodID,
+                count(OfferServedID) as counts
+        from    {{ db }}.{{ table }}
+        where   ServedDate between '{{ from_time }}' and '{{ to_time }}' /*UPDATE DATES*/
+        group by 1,2,3,4,5,6
+        order by 1,2,3,4,5,6
+        ); -- 23 seconds
+        
+        
+
+--- update upload table
+update  temp.ew_anodotUpload a
+set     srv_count = counts
+from    srvData b
+where   1=1
+        and(a.ServedDate_hour||'+'||a.InstitutionID||'+'||a.ChannelID||'+'||a.LocationID||'+'||a.DisplayID||'+'||a.MarkServedMethodID) :: varchar = (b.ServedDate_hour||'+'||b.InstitutionID||'+'||b.ChannelID||'+'||b.LocationID||'+'||b.DisplayID||'+'||b.MarkServedMethodID) :: varchar
+        ;
 """
 
 jtpl_vertica_query_basic = """
