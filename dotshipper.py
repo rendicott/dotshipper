@@ -49,7 +49,7 @@ select /*+direct*/
  limit {{ limit }};
 """
 
-jtpl_vertica_query = """
+jtpl_vertica_query_build_temp = """
 -- build shell table
 drop table if exists temp.ew_anodotUpload cascade;
 create table temp.ew_anodotUpload as /*+direct*/ (
@@ -102,6 +102,9 @@ where   1=1
         and(a.ServedDate_hour||'+'||a.InstitutionID||'+'||a.ChannelID||'+'||a.LocationID||'+'||a.DisplayID||'+'||a.MarkServedMethodID) :: varchar = (b.ServedDate_hour||'+'||b.InstitutionID||'+'||b.ChannelID||'+'||b.LocationID||'+'||b.DisplayID||'+'||b.MarkServedMethodID) :: varchar
         ;
 
+"""
+
+jtpl_vertica_query = """
 select * from temp.ew_anodotUpload;
 """
 
@@ -153,9 +156,21 @@ def vert_query(settingsobj,from_time,to_time,limit):
     logging.info("Connection info dict is like this: " + str(conn_info))
     connection = vertica_python.connect(**conn_info)
     cur = connection.cursor()
-    q = Template(jtpl_vertica_query)
-    qstring = q.render(db=settingsobj.vert_db,table="cdw.vOfferServed",from_time=from_time,to_time=to_time,limit=limit)
-    logging.info("BUILT QUERY IS:")
+    # first build the bucket tables
+    q_buildTemp = Template(jtpl_vertica_query_build_temp)
+    qstring = q_buildTemp.render(db=settingsobj.vert_db,table="cdw.vOfferServed",from_time=from_time,to_time=to_time,limit=limit)
+    logging.info("BUILT QUERY FOR GENERATING TEMP TABLES IS:")
+    logging.info("--------------------------------------")
+    logging.info(qstring)
+    logging.info("--------------------------------------")
+    cur.execute(qstring)
+    
+    # now query the temp table for actual results
+    q_readTemp = Template(jtpl_vertica_query)
+    qstring = q_readTemp.render()
+    logging.info("done build temp tables")
+    logging.info(" ")
+    logging.info("BUILT QUERY FOR QUERYING TEMP TABLE IS:")
     logging.info("--------------------------------------")
     logging.info(qstring)
     logging.info("--------------------------------------")
