@@ -101,6 +101,8 @@ from    srvData b
 where   1=1
         and(a.ServedDate_hour||'+'||a.InstitutionID||'+'||a.ChannelID||'+'||a.LocationID||'+'||a.DisplayID||'+'||a.MarkServedMethodID) :: varchar = (b.ServedDate_hour||'+'||b.InstitutionID||'+'||b.ChannelID||'+'||b.LocationID||'+'||b.DisplayID||'+'||b.MarkServedMethodID) :: varchar
         ;
+
+select * from temp.ew_anodotUpload;
 """
 
 jtpl_vertica_query_basic = """
@@ -118,9 +120,9 @@ body:
 "timestamp":`date +%s`,"value":100,"tags":{"target_type":"counter"}}]
 '''
 jtpl_anodot_body = """
-{"name":"InstitutionID={{ institution_id }}.SourceChannelID={{ source_channel_id }}.
-LocationID={{ location_id }}.SourceDisplayID={{ source_display_id }}.DisplayID={{ display_id }}.
-MarkServedMethodID={{ mark_served_method_id }}.SourceMarkServedMethodID={{ source_mark_served_method_id }}",
+{"name":"InstitutionID={{ institution_id }}.
+LocationID={{ location_id }}.DisplayID={{ display_id }}.
+MarkServedMethodID={{ mark_served_method_id }}",
 "timestamp": {{ anodot_timestamp }},"value": {{ value }},"tags":{}}
 """
 
@@ -211,17 +213,11 @@ class VOSrow_batched(Table_Formattable_Object):
         self.anodot_timestamp_epoch_str = None
         self.served_date_hour = None
         self.institution_id = None
-        self.source_channel_id = None
         self.channel_id = None
-        self.source_location_id = None
         self.location_id = None
-        self.source_display_id = None
         self.display_id = None
         self.counts = None
-        self.trxn_placement_flag = None
-        self.source_trxn_placement_flag = None
         self.mark_served_method_id = None
-        self.source_mark_served_method_id = None
         self.what = None
         self.tags = None
         self.version = None
@@ -229,38 +225,26 @@ class VOSrow_batched(Table_Formattable_Object):
     def build_self_from_row_list(self,rowlist):
         self.served_date_hour = rowlist[0]
         self.institution_id = rowlist[1]
-        self.source_channel_id = rowlist[2]
-        self.channel_id = rowlist[3]
-        self.source_location_id = rowlist[4]
-        self.location_id = rowlist[5]
-        self.source_display_id = rowlist[6]
-        self.display_id = rowlist[7]
-        self.trxn_placement_flag = rowlist[8]
-        self.source_trxn_placement_flag = rowlist[9]
-        self.mark_served_method_id = rowlist[10]
-        self.source_mark_served_method_id = rowlist[11]
+        self.channel_id = rowlist[2]
+        self.location_id = rowlist[3]
+        self.display_id = rowlist[4]
+        self.mark_served_method_id = rowlist[5]
         # for the batched we'll use the pulled row count
-        self.counts = int(rowlist[12])
+        self.counts = int(rowlist[6])
         # for the batched we'll use the served date hour
         self.anodot_timestamp = self.served_date_hour
         self.make_anodot_timestamp()
 
     def build_anodot_body(self):
         ##t0 = time.time()
-        tpl = '{{"name":"ver={0}.InstitutionID={1}.SourceChannelID={2}.ChannelID={3}.SourceLocationID={4}.LocationID={5}.SourceDisplayID={6}.DisplayID={7}.Trxn_Placement_Flag={8}.SourceTrxn_Placement_Flag={9}.MarkServedMethodID={10}.SourceMarkServedMethodID={11}.what={12}","timestamp": {13},"value": {14},"tags": {15} }}'
+        tpl = '{{"name":"ver={0}.InstitutionID={1}.ChannelID={2}.LocationID={3}.DisplayID={4}.MarkServedMethodID={5}.what={6}","timestamp": {7},"value": {8},"tags": {9} }}'
         anodot_body_vals = []
         anodot_body_vals.append(self.version)
         anodot_body_vals.append(self.institution_id)
-        anodot_body_vals.append(self.source_channel_id)
         anodot_body_vals.append(self.channel_id)
-        anodot_body_vals.append(self.source_location_id)
         anodot_body_vals.append(self.location_id)
-        anodot_body_vals.append(self.source_display_id)
         anodot_body_vals.append(self.display_id)
-        anodot_body_vals.append(self.trxn_placement_flag)
-        anodot_body_vals.append(self.source_trxn_placement_flag)
         anodot_body_vals.append(self.mark_served_method_id)
-        anodot_body_vals.append(self.source_mark_served_method_id)
         anodot_body_vals.append(self.what)
         anodot_body_vals.append(int(self.anodot_timestamp_epoch_str))
         anodot_body_vals.append(self.counts)
