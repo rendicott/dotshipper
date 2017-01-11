@@ -2,6 +2,8 @@
 
 Runs a Vertica query for a given time window and then prepares the data for shipping to Anodot. It stores the from-to timestamp window in a Redis instance so the next time it runs it only queries latest data from the last run. 
 
+![Sample Anodot Email Alert](../images/anodot-alert.PNG)
+
 ## Pre-reqs
 
 - Requires pyTableFormat for debugging (https://github.com/rendicott/pyTableFormat)
