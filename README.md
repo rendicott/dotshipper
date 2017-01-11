@@ -119,7 +119,9 @@ Same straightforward here. Put your Vertica connection info here.
 ## Screenshots
 
 Sliding window explanation
+
 ![Sliding window explanation](./images/window-sample.png)
 
 Redis data structure
+
 ![Redis data structure](./images/redis-sample.png)
